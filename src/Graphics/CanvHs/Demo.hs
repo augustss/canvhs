@@ -1,8 +1,12 @@
 module Graphics.CanvHs.Demo where
 import Graphics.CanvHs
 
+header :: String
+header = "Source at https://github.com/augustss/canvhs"
+
 demo1 :: IO ()
 demo1 = do
+  putStrLn header
   let scene = Pictures 
         [ Color blue (SolidRectangle 200 200)
         , Color red (SolidCircle 50)
@@ -11,6 +15,7 @@ demo1 = do
 
 demo2 :: IO ()
 demo2 = do
+  putStrLn header
   let background = Color darkGray (SolidRectangle 800 800)
   display (Pictures [background, lotusMandala])
 
