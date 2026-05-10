@@ -69,8 +69,8 @@ solarSystem t =
 --------------------------------------------------------
 
 data DemoState = DemoState
-  { ballX     :: Double
-  , ballY     :: Double
+  { ball_X    :: Double
+  , ball_Y    :: Double
   , totalTime :: Double
   } deriving (Show)
 
@@ -87,7 +87,7 @@ stepDemo dt mouse state =
     -- Only update the ball's target coordinates if the mouse is down
     (newX, newY) = if mouseIsDown mouse
                    then (mouseX mouse, mouseY mouse)
-                   else (ballX state, ballY state)
+                   else (ball_X state, ball_Y state)
                    
   in DemoState newX newY newTime
 
@@ -97,15 +97,15 @@ drawDemo state =
   let
     pulse = 1.0 + 0.2 * sin (totalTime state * 5.0)
     
-    ball = Translate (ballX state) (ballY state) $ 
+    ball = Translate (ball_X state) (ball_Y state) $ 
            Scale pulse pulse $ 
            Color red (SolidCircle 30)
            
     -- Create the coordinate text
-    coordString = "X: " ++ show (doubleToInt $ ballX state) ++ ", Y: " ++ show (doubleToInt $ ballY state)
+    coordString = "X: " ++ show (doubleToInt $ ball_X state) ++ ", Y: " ++ show (doubleToInt $ ball_Y state)
     
     -- Position the text slightly above and to the right of the ball
-    label = Translate (ballX state + 40) (ballY state + 40) $ 
+    label = Translate (ball_X state + 40) (ball_Y state + 40) $ 
             Color white (Text coordString)
            
     background = Color black (SolidRectangle 2000 2000)
@@ -121,3 +121,100 @@ demo4 = do
 
 --------------------------------------------------------
 
+-- 1. The Game State
+data PongState = PongState
+  { ballX    :: Double
+  , ballY    :: Double
+  , ballVX   :: Double  -- Velocity X
+  , ballVY   :: Double  -- Velocity Y
+  , paddle1Y :: Double  -- Player (Left)
+  , paddle2Y :: Double  -- AI (Right)
+  , score1   :: Int
+  , score2   :: Int
+  } deriving (Show)
+
+-- Start the ball moving to the left
+initialPongState :: PongState
+initialPongState = PongState 0 0 (-400) 250 0 0 0 0
+
+-- Game Constants
+boardWidth, boardHeight, paddleW, paddleH, ballSize :: Double
+boardWidth  = 800
+boardHeight = 600
+paddleW     = 50
+paddleH     = 100
+ballSize    = 15
+
+-- 2. The Physics & Logic (Step Function)
+stepPong :: Double -> MouseState -> PongState -> PongState
+stepPong dt mouse state = 
+  let
+    -- A. Player Paddle (Snaps directly to mouse Y)
+    p1Y = mouseY mouse
+
+    -- B. AI Paddle (Chases the ball with a maximum speed)
+    aiSpeed = 350.0
+    p2Diff  = ballY state - paddle2Y state
+    -- signum gives direction (1 or -1), min limits the speed per frame
+    p2Move  = signum p2Diff * min (abs p2Diff) (aiSpeed * dt)
+    p2Y     = paddle2Y state + p2Move
+
+    -- C. Move the Ball
+    nextX = ballX state + ballVX state * dt
+    nextY = ballY state + ballVY state * dt
+
+    -- D. Wall Collisions (Bounce off Top and Bottom)
+    (nextY', vy') 
+      | nextY >  (boardHeight / 2) = ( boardHeight / 2, -ballVY state)
+      | nextY < -(boardHeight / 2) = (-boardHeight / 2, -ballVY state)
+      | otherwise                  = (nextY, ballVY state)
+
+    -- E. Paddle Collisions
+    -- Check if ball is intersecting the X-plane of the paddles, AND within their Y-height
+    hitLeft  = nextX < (-boardWidth/2 + paddleW) && abs (nextY' - p1Y) < (paddleH/2)
+    hitRight = nextX > ( boardWidth/2 - paddleW) && abs (nextY' - p2Y) < (paddleH/2)
+
+    vx' 
+      | hitLeft   = abs (ballVX state) + 20   -- Bounce right, speed up slightly
+      | hitRight  = -(abs (ballVX state) + 20)  -- Bounce left, speed up slightly
+      | otherwise = ballVX state
+
+    -- F. Scoring
+    p2Scored = nextX < -(boardWidth/2 + 50)
+    p1Scored = nextX >  (boardWidth/2 + 50)
+
+    (finalX, finalY, finalVX, finalVY, finalS1, finalS2)
+      | p1Scored  = (0, 0, -400, 250, score1 state + 1, score2 state)
+      | p2Scored  = (0, 0,  400, 250, score1 state, score2 state + 1)
+      | otherwise = (nextX, nextY', vx', vy', score1 state, score2 state)
+
+  in PongState finalX finalY finalVX finalVY p1Y p2Y finalS1 finalS2
+
+-- 3. The Rendering (Draw Function)
+drawPong :: PongState -> Picture
+drawPong state = 
+  let
+    bg = Color black (SolidRectangle 2000 2000)
+    
+    -- A thin center dividing line
+    centerLine = Color white (SolidRectangle 2 boardHeight)
+
+    -- The Paddles
+    p1 = Translate (-boardWidth/2) (paddle1Y state) $ Color white (SolidRectangle paddleW paddleH)
+    p2 = Translate ( boardWidth/2) (paddle2Y state) $ Color white (SolidRectangle paddleW paddleH)
+
+    -- The Ball (Classic square shape)
+    ball = Translate (ballX state) (ballY state) $ Color white (SolidRectangle ballSize ballSize)
+
+    -- The Scores (Snapping to integers to avoid any lingering sub-pixel rendering issues)
+    s1Text = Translate (-100) (boardHeight/2 - 40) $ Color white (Text (show $ score1 state))
+    s2Text = Translate ( 100) (boardHeight/2 - 40) $ Color white (Text (show $ score2 state))
+
+  in Pictures [bg, centerLine, p1, p2, ball, s1Text, s2Text]
+
+-- 4. Execute
+demo5 :: IO ()
+demo5 = do
+  putStrLn header
+  putStrLn headerINT
+  play initialPongState drawPong stepPong
