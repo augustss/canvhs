@@ -1,1 +1,3 @@
-# Simple Graphics for MicrHs
+# Simple Graphics for MicroHs
+
+Inspired by Gloss and Shine.
