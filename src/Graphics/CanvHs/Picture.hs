@@ -1,3 +1,6 @@
+--
+-- A lot of this code was written by Gemini
+--
 module Graphics.CanvHs.Picture(
   Picture(..),
   MouseState(..),
@@ -5,8 +8,9 @@ module Graphics.CanvHs.Picture(
   animate,
   play,
   ) where
-import Graphics.CanvHs.Color
+import Control.Exception(bracket_)
 import Foreign.C.String(withCAString, CString)
+import Graphics.CanvHs.Color
 
 -- | Standard Gloss/Shine Picture primitives
 data Picture
@@ -159,11 +163,13 @@ renderPicture (Text str) =
 display :: Picture -> IO ()
 display pic = do
   js_showCanvas
-  js_save
-  js_clearCanvas
-  js_setupCoordinates
-  renderPicture pic
-  js_restore
+  safeRender $ do
+    js_clearCanvas
+    js_setupCoordinates
+    renderPicture pic
+
+safeRender :: IO () -> IO ()
+safeRender act = bracket_ js_save js_restore act
 
 --------------------------------
 
@@ -185,11 +191,10 @@ animate frameFunc = do
         let t = (frameStart - startTime) / 1000.0
 
         -- 2. Do the heavy lifting
-        js_save
-        js_clearCanvas
-        js_setupCoordinates
-        renderPicture (frameFunc t)
-        js_restore
+        safeRender $ do
+          js_clearCanvas
+          js_setupCoordinates
+          renderPicture (frameFunc t)
 
         -- 3. Calculate how long the drawing took
         frameEnd <- js_now
@@ -251,11 +256,10 @@ play initialWorld drawFunc stepFunc = do
 
         -- 4. Draw the new World
         frameStart <- js_now
-        js_save
-        js_clearCanvas
-        js_setupCoordinates
-        renderPicture (drawFunc newWorld)
-        js_restore
+        safeRender $ do
+          js_clearCanvas
+          js_setupCoordinates
+          renderPicture (drawFunc newWorld)
 
         -- 5. Calculate sleep time for 60 FPS (~16.66ms per frame)
         frameEnd <- js_now
