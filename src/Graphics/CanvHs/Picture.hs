@@ -7,6 +7,7 @@ module Graphics.CanvHs.Picture(
   display,
   animate,
   play,
+  reset,
   ) where
 import Control.Exception(bracket_)
 import Foreign.C.String(withCAString, CString)
@@ -30,58 +31,58 @@ data Picture
 
 -- JavaScript FFI Bindings
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.save();"
+foreign import javascript unsafe "window.ctx.save();"
   js_save :: IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.restore();"
+foreign import javascript unsafe "window.ctx.restore();"
   js_restore :: IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.translate($0, $1);"
+foreign import javascript unsafe "window.ctx.translate($0, $1);"
   js_translate :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.rotate($0);"
+foreign import javascript unsafe "window.ctx.rotate($0);"
   js_rotate :: Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.scale($0, $1);"
+foreign import javascript unsafe "window.ctx.scale($0, $1);"
   js_scale :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.beginPath();"
+foreign import javascript unsafe "window.ctx.beginPath();"
   js_beginPath :: IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.closePath();"
+foreign import javascript unsafe "window.ctx.closePath();"
   js_closePath :: IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.moveTo($0, $1);"
+foreign import javascript unsafe "window.ctx.moveTo($0, $1);"
   js_moveTo :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.lineTo($0, $1);"
+foreign import javascript unsafe "window.ctx.lineTo($0, $1);"
   js_lineTo :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.fill();"
+foreign import javascript unsafe "window.ctx.fill();"
   js_fill :: IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.stroke();"
+foreign import javascript unsafe "window.ctx.stroke();"
   js_stroke :: IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.arc(0, 0, $0, 0, 2 * Math.PI); c.stroke();"
+foreign import javascript unsafe "var c = window.ctx; c.arc(0, 0, $0, 0, 2 * Math.PI); c.stroke();"
   js_strokeCircle :: Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.arc(0, 0, $0, 0, 2 * Math.PI); c.fill();"
+foreign import javascript unsafe "var c = window.ctx; c.arc(0, 0, $0, 0, 2 * Math.PI); c.fill();"
   js_fillCircle :: Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.rect(-($0/2), -($1/2), $0, $1); c.stroke();"
+foreign import javascript unsafe "var c = window.ctx; c.rect(-($0/2), -($1/2), $0, $1); c.stroke();"
   js_strokeRect :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); c.rect(-($0/2), -($1/2), $0, $1); c.fill();"
+foreign import javascript unsafe "var c = window.ctx; c.rect(-($0/2), -($1/2), $0, $1); c.fill();"
   js_fillRect :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var c = document.getElementById('drawing-canvas').getContext('2d'); var col = 'rgba(' + Math.round($0*255) + ',' + Math.round($1*255) + ',' + Math.round($2*255) + ',' + $3 + ')'; c.fillStyle = col; c.strokeStyle = col;"
+foreign import javascript unsafe "var col = 'rgba(' + Math.round($0*255) + ',' + Math.round($1*255) + ',' + Math.round($2*255) + ',' + $3 + ')'; var c = window.ctx; c.fillStyle = col; c.strokeStyle = col;"
   js_setColor :: Double -> Double -> Double -> Double -> IO ()
 
-foreign import javascript unsafe "var cvs = document.getElementById('drawing-canvas'); var c = cvs.getContext('2d'); c.clearRect(0, 0, cvs.width, cvs.height);"
+foreign import javascript unsafe "window.ctx.clearRect(0, 0, window.cvs.width, window.cvs.height);"
   js_clearCanvas :: IO ()
 
-foreign import javascript unsafe "var cvs = document.getElementById('drawing-canvas'); var c = cvs.getContext('2d'); c.translate(cvs.width / 2, cvs.height / 2); c.scale(1, -1);"
+foreign import javascript unsafe "var c = window.ctx; c.translate(window.cvs.width / 2, window.cvs.height / 2); c.scale(1, -1);"
   js_setupCoordinates :: IO ()
 
 foreign import javascript unsafe "window.showCanvas();"
@@ -91,8 +92,18 @@ foreign import javascript unsafe "window.showCanvas();"
 foreign import javascript unsafe "window.drawHaskellText($0);"
   js_fillText :: CString -> IO ()
 
+foreign import javascript unsafe "window.ctx.resetTransform();"
+  js_resetTransform :: IO ()
+
 foreign import javascript unsafe "console.log('js_log=', $0);"
   js_log :: Double -> IO ()
+
+-- A handy utility to call from the REPL if the canvas gets stuck upside down!
+reset :: IO ()
+reset = do
+  js_resetTransform
+  js_clearCanvas
+  js_setupCoordinates
 
 -- Rendering
 
@@ -108,6 +119,9 @@ drawPath ((startX, startY):pts) close = do
       js_fill
     else
       js_stroke
+
+saveRestore :: IO () -> IO ()
+saveRestore = bracket_ js_save js_restore
 
 renderPicture :: Picture -> IO ()
 renderPicture Blank = return ()
@@ -163,17 +177,13 @@ renderPicture (Text str) =
 display :: Picture -> IO ()
 display pic = do
   js_showCanvas
-  safeRender $ do
+  saveRestore $ do
     js_clearCanvas
     js_setupCoordinates
     renderPicture pic
 
-safeRender :: IO () -> IO ()
-safeRender act = bracket_ js_save js_restore act
-
 --------------------------------
 
--- Add this if you haven't already
 foreign import javascript unsafe "return performance.now()"
   js_now :: IO Double
 
@@ -191,7 +201,7 @@ animate frameFunc = do
         let t = (frameStart - startTime) / 1000.0
 
         -- 2. Do the heavy lifting
-        safeRender $ do
+        saveRestore $ do
           js_clearCanvas
           js_setupCoordinates
           renderPicture (frameFunc t)
@@ -256,7 +266,7 @@ play initialWorld drawFunc stepFunc = do
 
         -- 4. Draw the new World
         frameStart <- js_now
-        safeRender $ do
+        saveRestore $ do
           js_clearCanvas
           js_setupCoordinates
           renderPicture (drawFunc newWorld)
