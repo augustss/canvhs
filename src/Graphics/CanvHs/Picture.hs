@@ -29,6 +29,13 @@ data Picture
   | Pictures [Picture]               -- Group of pictures
   | Text String                      -- text
 
+data MouseState = MouseState
+  { mouseX      :: Double
+  , mouseY      :: Double
+  , mouseIsDown :: Bool
+  } deriving (Show, Eq)
+
+------------------------------------------------------------
 -- JavaScript FFI Bindings
 
 foreign import javascript unsafe "window.ctx.save();"
@@ -98,12 +105,48 @@ foreign import javascript unsafe "window.ctx.resetTransform();"
 foreign import javascript unsafe "console.log('js_log=', $0);"
   js_log :: Double -> IO ()
 
--- A handy utility to call from the REPL if the canvas gets stuck upside down!
+foreign import javascript unsafe "return performance.now()"
+  js_now :: IO Double
+
+foreign import javascript unsafe "return window.mouseState.x;"
+  js_mouseX :: IO Double
+
+foreign import javascript unsafe "return window.mouseState.y;"
+  js_mouseY :: IO Double
+
+foreign import javascript unsafe "return window.mouseState.down;"
+  js_mouseDown :: IO Int
+
+foreign import ccall unsafe "emscripten_sleep"
+  emscripten_sleep :: Int -> IO ()
+
+foreign import capi "value extern void c_begin_draw(void); c_begin_draw()"
+  c_begin_draw :: IO ()
+
+foreign import capi "value extern void c_end_draw(void); c_end_draw()"
+  c_end_draw :: IO ()
+
+foreign import capi "value extern void c_waitForFrame(void); c_waitForFrame()"
+  js_waitForFrame :: IO ()
+
+----------------------------------------------------------------
+
+{-
+withSaved :: IO () -> IO ()
+withSaved = bracket_ js_save js_restore
+
+withDrawLock :: IO a -> IO a
+withDrawLock = bracket_ c_begin_draw c_end_draw
+-}
+
+drawing :: IO a -> IO a
+drawing = bracket_ (c_begin_draw >> js_save) (js_restore >> c_end_draw)
+
+-- Reset in case the transform stack gets messed up.
 reset :: IO ()
 reset = do
   js_resetTransform
   js_clearCanvas
-  js_setupCoordinates
 
 -- Rendering
 
@@ -119,9 +162,6 @@ drawPath ((startX, startY):pts) close = do
       js_fill
     else
       js_stroke
-
-saveRestore :: IO () -> IO ()
-saveRestore = bracket_ js_save js_restore
 
 renderPicture :: Picture -> IO ()
 renderPicture Blank = return ()
@@ -177,18 +217,12 @@ renderPicture (Text str) =
 display :: Picture -> IO ()
 display pic = do
   js_showCanvas
-  saveRestore $ do
+  drawing $ do
     js_clearCanvas
     js_setupCoordinates
     renderPicture pic
 
 --------------------------------
-
-foreign import javascript unsafe "return performance.now()"
-  js_now :: IO Double
-
-foreign import ccall unsafe "emscripten_sleep"
-  emscripten_sleep :: Int -> IO ()
 
 animate :: (Double -> Picture) -> IO ()
 animate frameFunc = do
@@ -196,52 +230,21 @@ animate frameFunc = do
   startTime <- js_now
 
   let loop = do
-        -- 1. Mark the start of the frame
-        frameStart <- js_now
-        let t = (frameStart - startTime) / 1000.0
+        currentTime <- js_now
+        let dt = (currentTime - startTime) / 1000.0
 
-        -- 2. Do the heavy lifting
-        saveRestore $ do
+        drawing $ do
           js_clearCanvas
           js_setupCoordinates
-          renderPicture (frameFunc t)
+          renderPicture (frameFunc dt)
 
-        -- 3. Calculate how long the drawing took
-        frameEnd <- js_now
-        let drawTime = frameEnd - frameStart
+        js_waitForFrame
 
-            -- 1000ms / 60 frames = ~16.66ms per frame
-            targetFrameTime = 16.66
-
-            -- Calculate remaining time. Use `round` to convert Double to Int
-            sleepTime = round (targetFrameTime - drawTime)
-
-        -- 4. Sleep only the remaining time.
-        -- If drawing took longer than 16ms, we sleep 0 (which still forces
-        -- Emscripten to yield to the browser so it can paint the canvas).
-        emscripten_sleep (max 0 sleepTime)
-
-        -- 5. Repeat
         loop
 
   loop
 
 ---------------------------------
-
-foreign import javascript unsafe "return window.mouseState.x;"
-  js_mouseX :: IO Double
-
-foreign import javascript unsafe "return window.mouseState.y;"
-  js_mouseY :: IO Double
-
-foreign import javascript unsafe "return window.mouseState.down;"
-  js_mouseDown :: IO Int
-
-data MouseState = MouseState
-  { mouseX      :: Double
-  , mouseY      :: Double
-  , mouseIsDown :: Bool
-  } deriving (Show, Eq)
 
 play :: world
      -> (world -> Picture)
@@ -249,36 +252,24 @@ play :: world
      -> IO ()
 play initialWorld drawFunc stepFunc = do
   js_showCanvas
-
-  -- Get the absolute start time to kick off the loop
   startTime <- js_now
 
   let loop lastTime world = do
-        -- 1. Calculate Delta Time (dt) using the passed-in lastTime
         currentTime <- js_now
         let dt = (currentTime - lastTime) / 1000.0
 
-        -- 2. Read the Mouse Billboard
+        -- Get the mouse billboard
         mState <- MouseState <$> js_mouseX <*> js_mouseY <*> ((/= 0) <$> js_mouseDown)
 
-        -- 3. Update the World State
         let newWorld = stepFunc dt mState world
 
-        -- 4. Draw the new World
-        frameStart <- js_now
-        saveRestore $ do
+        drawing $ do
           js_clearCanvas
           js_setupCoordinates
           renderPicture (drawFunc newWorld)
 
-        -- 5. Calculate sleep time for 60 FPS (~16.66ms per frame)
-        frameEnd <- js_now
-        let drawTime = frameEnd - frameStart
-            targetFrameTime = 16.66
-            sleepTime = round (targetFrameTime - drawTime)
+        js_waitForFrame
 
-        -- 6. Sleep and recurse with the NEW time and NEW world
-        emscripten_sleep (max 0 sleepTime)
         loop currentTime newWorld
 
   loop startTime initialWorld

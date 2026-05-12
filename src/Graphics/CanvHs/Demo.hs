@@ -1,6 +1,7 @@
 module Graphics.CanvHs.Demo where
 import Data.Double
 import Graphics.CanvHs
+import Audio.AudHs.Sound
 
 header :: String
 header = "Source at https://github.com/augustss/canvhs"
@@ -13,7 +14,7 @@ headerINT = "Use CTRL-C to interrupt"
 demo1 :: IO ()
 demo1 = do
   putStrLn header
-  let scene = Pictures 
+  let scene = Pictures
         [ Color blue (SolidRectangle 200 200)
         , Color red (SolidCircle 50)
         ]
@@ -32,7 +33,7 @@ lotusMandala :: Picture
 lotusMandala = Pictures [ Rotate (angle * 30) (petal angle) | angle <- [0..11] ]
   where
     -- Alternates colors based on the angle index
-    petal a 
+    petal a
       | even (round a) = Color pink    (Translate 0 80 (SolidCircle 40))
       | otherwise      = Color magenta (Translate 0 80 (SolidCircle 40))
 
@@ -46,24 +47,24 @@ demo3 = do
   animate solarSystem
 
 solarSystem :: Double -> Picture
-solarSystem t = 
+solarSystem t =
   let
     -- Sun
     sun = Color yellow (SolidCircle 50)
-    
+
     -- Earth
     earth = Rotate (t * 45.0) $ Translate 150 0 $ Pictures
-      [ Color blue (SolidCircle 20) 
-      , moon 
+      [ Color blue (SolidCircle 20)
+      , moon
       ]
-      
+
     -- Moon
-    moon = Rotate (t * 180.0) $ Translate 40 0 $ 
+    moon = Rotate (t * 180.0) $ Translate 40 0 $
            Color white (SolidCircle 8)
-           
+
     -- Space
     background = Color black (SolidRectangle 2000 2000)
-    
+
   in Pictures [background, sun, earth]
 
 --------------------------------------------------------
@@ -79,37 +80,37 @@ initialState = DemoState 0 0 0
 
 -- The Step Function (Logic)
 stepDemo :: Double -> MouseState -> DemoState -> DemoState
-stepDemo dt mouse state = 
-  let 
+stepDemo dt mouse state =
+  let
     -- Always accumulate time so the pulsation never stops
     newTime = totalTime state + dt
-    
+
     -- Only update the ball's target coordinates if the mouse is down
     (newX, newY) = if mouseIsDown mouse
                    then (mouseX mouse, mouseY mouse)
                    else (ball_X state, ball_Y state)
-                   
+
   in DemoState newX newY newTime
 
 -- The Draw Function (Rendering)
 drawDemo :: DemoState -> Picture
-drawDemo state = 
+drawDemo state =
   let
     pulse = 1.0 + 0.2 * sin (totalTime state * 5.0)
-    
-    ball = Translate (ball_X state) (ball_Y state) $ 
-           Scale pulse pulse $ 
+
+    ball = Translate (ball_X state) (ball_Y state) $
+           Scale pulse pulse $
            Color red (SolidCircle 30)
-           
+
     -- Create the coordinate text
     coordString = "X: " ++ show (doubleToInt $ ball_X state) ++ ", Y: " ++ show (doubleToInt $ ball_Y state)
-    
+
     -- Position the text slightly above and to the right of the ball
-    label = Translate (ball_X state + 40) (ball_Y state + 40) $ 
+    label = Translate (ball_X state + 40) (ball_Y state + 40) $
             Color white (Text coordString)
-           
+
     background = Color black (SolidRectangle 2000 2000)
-    
+
   in Pictures [background, ball, label]
 
 demo4 :: IO ()
@@ -147,7 +148,7 @@ ballSize    = 15
 
 -- 2. The Physics & Logic (Step Function)
 stepPong :: Double -> MouseState -> PongState -> PongState
-stepPong dt mouse state = 
+stepPong dt mouse state =
   let
     -- A. Player Paddle (Snaps directly to mouse Y)
     p1Y = mouseY mouse
@@ -164,7 +165,7 @@ stepPong dt mouse state =
     nextY = ballY state + ballVY state * dt
 
     -- D. Wall Collisions (Bounce off Top and Bottom)
-    (nextY', vy') 
+    (nextY', vy')
       | nextY >  (boardHeight / 2) = ( boardHeight / 2, -ballVY state)
       | nextY < -(boardHeight / 2) = (-boardHeight / 2, -ballVY state)
       | otherwise                  = (nextY, ballVY state)
@@ -174,7 +175,7 @@ stepPong dt mouse state =
     hitLeft  = nextX < (-boardWidth/2 + paddleW) && abs (nextY' - p1Y) < (paddleH/2)
     hitRight = nextX > ( boardWidth/2 - paddleW) && abs (nextY' - p2Y) < (paddleH/2)
 
-    vx' 
+    vx'
       | hitLeft   = abs (ballVX state) + 20   -- Bounce right, speed up slightly
       | hitRight  = -(abs (ballVX state) + 20)  -- Bounce left, speed up slightly
       | otherwise = ballVX state
@@ -192,10 +193,10 @@ stepPong dt mouse state =
 
 -- 3. The Rendering (Draw Function)
 drawPong :: PongState -> Picture
-drawPong state = 
+drawPong state =
   let
     bg = Color black (SolidRectangle 2000 2000)
-    
+
     -- A thin center dividing line
     centerLine = Color white (SolidRectangle 2 boardHeight)
 
@@ -218,3 +219,37 @@ demo5 = do
   putStrLn header
   putStrLn headerINT
   play initialPongState drawPong stepPong
+
+--------------------------------------------------------
+
+demo6 :: IO ()
+demo6 = animate lotus
+  where
+    lotus :: Double -> Picture
+    lotus t = Pictures [ petal t i | i <- [0..11] ]
+
+    petal :: Double -> Double -> Picture
+    petal t i =
+      let
+        -- 1. Space out 12 petals evenly (360/12 = 30 degrees), and rotate the whole thing over time
+        angle = i * 30 + (t * 15)
+
+        -- 2. Use sine waves to smoothly cycle RGB colors based on time and petal index
+        r = 0.5 + 0.5 * sin (t + i)
+        g = 0.5 + 0.5 * sin (t + i + 2)
+        b = 0.5 + 0.5 * sin (t + i + 4)
+
+        -- 3. Make the petals "breathe" in and out
+        distance = 60 + 20 * sin (t * 2)
+
+      in
+        Rotate angle $
+        Translate distance 0 $
+        Color (RGBA r g b 0.7) (SolidCircle 25)
+
+--------------------------------------------------------
+
+demo7 :: IO ()
+demo7 = do
+  putStrLn "Playing a sound"
+  playSound $ Sound Sine 440 0.5 1.5
