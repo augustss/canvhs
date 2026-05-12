@@ -1,6 +1,7 @@
 module Audio.AudHs.Sound(
   Waveform(..),
   Sound(..),
+  silence,
   playSound,
   ) where
 import Audio.AudHs.FFI
@@ -14,6 +15,11 @@ data Sound = Sound
     , volume   :: Double               -- 0.0 - 1.0
     , duration :: Double               -- s
     }
+    | Sounds [Sound]
+    deriving (Show)
+
+silence :: Sound
+silence = Sounds []
 
 playSound :: Sound -> IO ()
 playSound (Sound w f vol dur) = do
@@ -31,3 +37,4 @@ playSound (Sound w f vol dur) = do
     
     startNode osc now
     stopNode osc (now + dur)
+playSound (Sounds ss) = mapM_ playSound ss

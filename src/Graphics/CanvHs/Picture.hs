@@ -6,12 +6,14 @@ module Graphics.CanvHs.Picture(
   MouseState(..),
   display,
   animate,
+  playWithSound,
   play,
   reset,
   ) where
 import Control.Exception(bracket_)
 import Foreign.C.String(withCAString, CString)
 import Graphics.CanvHs.Color
+import Audio.AudHs.Sound
 
 -- | Standard Gloss/Shine Picture primitives
 data Picture
@@ -246,11 +248,12 @@ animate frameFunc = do
 
 ---------------------------------
 
-play :: world
+playWithSound :: world
      -> (world -> Picture)
+     -> (world -> Sound)
      -> (Double -> MouseState -> world -> world)
      -> IO ()
-play initialWorld drawFunc stepFunc = do
+playWithSound initialWorld drawFunc soundFunc stepFunc = do
   js_showCanvas
   startTime <- js_now
 
@@ -270,6 +273,15 @@ play initialWorld drawFunc stepFunc = do
 
         js_waitForFrame
 
+        playSound (soundFunc newWorld)
+
         loop currentTime newWorld
 
   loop startTime initialWorld
+
+play :: world
+     -> (world -> Picture)
+     -> (Double -> MouseState -> world -> world)
+     -> IO ()
+play initialWorld drawFunc stepFunc = playWithSound initialWorld drawFunc (const silence) stepFunc
+

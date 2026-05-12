@@ -132,11 +132,12 @@ data PongState = PongState
   , paddle2Y :: Double  -- AI (Right)
   , score1   :: Int
   , score2   :: Int
+  , sounds   :: Sound
   } deriving (Show)
 
 -- Start the ball moving to the left
 initialPongState :: PongState
-initialPongState = PongState 0 0 (-400) 250 0 0 0 0
+initialPongState = PongState 0 0 (-400) 250 0 0 0 0 silence
 
 -- Game Constants
 boardWidth, boardHeight, paddleW, paddleH, ballSize :: Double
@@ -170,6 +171,8 @@ stepPong dt mouse state =
       | nextY < -(boardHeight / 2) = (-boardHeight / 2, -ballVY state)
       | otherwise                  = (nextY, ballVY state)
 
+    wallSnd = if vy' /= ballVY state then [wallBounce] else []
+
     -- E. Paddle Collisions
     -- Check if ball is intersecting the X-plane of the paddles, AND within their Y-height
     hitLeft  = nextX < (-boardWidth/2 + paddleW) && abs (nextY' - p1Y) < (paddleH/2)
@@ -180,16 +183,20 @@ stepPong dt mouse state =
       | hitRight  = -(abs (ballVX state) + 20)  -- Bounce left, speed up slightly
       | otherwise = ballVX state
 
+    paddleSnd = if hitLeft || hitRight then [paddleBounce] else []
+
     -- F. Scoring
     p2Scored = nextX < -(boardWidth/2 + 50)
     p1Scored = nextX >  (boardWidth/2 + 50)
+
+    scoreSnd = if p1Scored || p2Scored then [scoreSound] else []
 
     (finalX, finalY, finalVX, finalVY, finalS1, finalS2)
       | p1Scored  = (0, 0, -400, 250, score1 state + 1, score2 state)
       | p2Scored  = (0, 0,  400, 250, score1 state, score2 state + 1)
       | otherwise = (nextX, nextY', vx', vy', score1 state, score2 state)
 
-  in PongState finalX finalY finalVX finalVY p1Y p2Y finalS1 finalS2
+  in PongState finalX finalY finalVX finalVY p1Y p2Y finalS1 finalS2 (Sounds $ wallSnd ++ paddleSnd ++ scoreSnd)
 
 -- 3. The Rendering (Draw Function)
 drawPong :: PongState -> Picture
@@ -213,12 +220,21 @@ drawPong state =
 
   in Pictures [bg, centerLine, p1, p2, ball, s1Text, s2Text]
 
+paddleBounce :: Sound
+paddleBounce = Sound Square 880 0.2 0.05
+
+wallBounce :: Sound
+wallBounce = Sound Square 440 0.2 0.05
+
+scoreSound :: Sound
+scoreSound = Sound Square 150 0.2 0.4
+
 -- 4. Execute
 demo5 :: IO ()
 demo5 = do
   putStrLn header
   putStrLn headerINT
-  play initialPongState drawPong stepPong
+  playWithSound initialPongState drawPong sounds stepPong
 
 --------------------------------------------------------
 
