@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               canvhs
-version:            0.2.0.0
+version:            0.2.0.1
 synopsis:           Simple HTML5 graphics for MicroHs
 description:        Simple HTML5 graphics and sound for MicroHs
 license:            Apache-2.0
@@ -26,7 +26,8 @@ library
                       Graphics.CanvHs.Color,
                       Graphics.CanvHs.Picture,
                       Graphics.CanvHs.Demo,
-                      Audio.AudHs.FFI
+                      Audio.AudHs.FFI,
+                      Audio.AudHs.Sound
     -- other-modules:
     -- other-extensions:
     build-depends:    base ^>=4.22.0.0
