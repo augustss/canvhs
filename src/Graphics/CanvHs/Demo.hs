@@ -13,6 +13,7 @@ headerINT = "Use CTRL-C to interrupt"
 
 demo1 :: IO ()
 demo1 = do
+  reset
   putStrLn header
   let scene = Pictures
         [ Color blue (SolidRectangle 200 200)
@@ -24,6 +25,7 @@ demo1 = do
 
 demo2 :: IO ()
 demo2 = do
+  reset
   putStrLn header
   let background = Color darkGray (SolidRectangle 800 800)
   display (Pictures [background, lotusMandala])
@@ -42,6 +44,7 @@ lotusMandala = Pictures [ Rotate (angle * 30) (petal angle) | angle <- [0..11] ]
 
 demo3 :: IO ()
 demo3 = do
+  reset
   putStrLn header
   putStrLn headerINT
   animate solarSystem
@@ -115,6 +118,7 @@ drawDemo state =
 
 demo4 :: IO ()
 demo4 = do
+  reset
   putStrLn header
   putStrLn headerINT
   putStrLn "Push the mouse button and drag it around in the animation window."
@@ -141,10 +145,10 @@ initialPongState = PongState 0 0 (-400) 250 0 0 0 0 silence
 
 -- Game Constants
 boardWidth, boardHeight, paddleW, paddleH, ballSize :: Double
-boardWidth  = 800
-boardHeight = 600
-paddleW     = 50
-paddleH     = 100
+boardWidth  = 400
+boardHeight = 300
+paddleW     = 10
+paddleH     = 50
 ballSize    = 15
 
 -- 2. The Physics & Logic (Step Function)
@@ -232,6 +236,7 @@ scoreSound = Sound Square 150 0.2 0.4
 -- 4. Execute
 demo5 :: IO ()
 demo5 = do
+  reset
   putStrLn header
   putStrLn headerINT
   playWithSound initialPongState drawPong sounds stepPong
@@ -239,7 +244,11 @@ demo5 = do
 --------------------------------------------------------
 
 demo6 :: IO ()
-demo6 = animate lotus
+demo6 = do
+  reset
+  putStrLn header
+  putStrLn headerINT
+  animate lotus
   where
     lotus :: Double -> Picture
     lotus t = Pictures [ petal t i | i <- [0..11] ]
@@ -267,5 +276,7 @@ demo6 = animate lotus
 
 demo7 :: IO ()
 demo7 = do
+  reset
+  putStrLn header
   putStrLn "Playing a sound"
   playSound $ Sound Sine 440 0.5 1.5
