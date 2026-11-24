@@ -46,13 +46,13 @@ foreign import javascript unsafe "window.ctx.save();"
 foreign import javascript unsafe "window.ctx.restore();"
   js_restore :: IO ()
 
-foreign import javascript unsafe "window.ctx.translate($0, $1);"
+foreign import javascript unsafe "window.ctx.translate($1, $2);"
   js_translate :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "window.ctx.rotate($0);"
+foreign import javascript unsafe "window.ctx.rotate($1);"
   js_rotate :: Double -> IO ()
 
-foreign import javascript unsafe "window.ctx.scale($0, $1);"
+foreign import javascript unsafe "window.ctx.scale($1, $2);"
   js_scale :: Double -> Double -> IO ()
 
 foreign import javascript unsafe "window.ctx.beginPath();"
@@ -61,10 +61,10 @@ foreign import javascript unsafe "window.ctx.beginPath();"
 foreign import javascript unsafe "window.ctx.closePath();"
   js_closePath :: IO ()
 
-foreign import javascript unsafe "window.ctx.moveTo($0, $1);"
+foreign import javascript unsafe "window.ctx.moveTo($1, $2);"
   js_moveTo :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "window.ctx.lineTo($0, $1);"
+foreign import javascript unsafe "window.ctx.lineTo($1, $2);"
   js_lineTo :: Double -> Double -> IO ()
 
 foreign import javascript unsafe "window.ctx.fill();"
@@ -73,19 +73,19 @@ foreign import javascript unsafe "window.ctx.fill();"
 foreign import javascript unsafe "window.ctx.stroke();"
   js_stroke :: IO ()
 
-foreign import javascript unsafe "var c = window.ctx; c.arc(0, 0, $0, 0, 2 * Math.PI); c.stroke();"
+foreign import javascript unsafe "var c = window.ctx; c.arc(0, 0, $1, 0, 2 * Math.PI); c.stroke();"
   js_strokeCircle :: Double -> IO ()
 
-foreign import javascript unsafe "var c = window.ctx; c.arc(0, 0, $0, 0, 2 * Math.PI); c.fill();"
+foreign import javascript unsafe "var c = window.ctx; c.arc(0, 0, $1, 0, 2 * Math.PI); c.fill();"
   js_fillCircle :: Double -> IO ()
 
-foreign import javascript unsafe "var c = window.ctx; c.rect(-($0/2), -($1/2), $0, $1); c.stroke();"
+foreign import javascript unsafe "var c = window.ctx; c.rect(-($1/2), -($2/2), $1, $2); c.stroke();"
   js_strokeRect :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var c = window.ctx; c.rect(-($0/2), -($1/2), $0, $1); c.fill();"
+foreign import javascript unsafe "var c = window.ctx; c.rect(-($1/2), -($2/2), $1, $2); c.fill();"
   js_fillRect :: Double -> Double -> IO ()
 
-foreign import javascript unsafe "var col = 'rgba(' + Math.round($0*255) + ',' + Math.round($1*255) + ',' + Math.round($2*255) + ',' + $3 + ')'; var c = window.ctx; c.fillStyle = col; c.strokeStyle = col;"
+foreign import javascript unsafe "var col = 'rgba(' + Math.round($1*255) + ',' + Math.round($2*255) + ',' + Math.round($3*255) + ',' + $4 + ')'; var c = window.ctx; c.fillStyle = col; c.strokeStyle = col;"
   js_setColor :: Double -> Double -> Double -> Double -> IO ()
 
 foreign import javascript unsafe "window.ctx.clearRect(0, 0, window.cvs.width, window.cvs.height);"
@@ -98,13 +98,13 @@ foreign import javascript unsafe "window.showCanvas();"
   js_showCanvas :: IO ()
 
 -- We save, flip Y back to normal, draw the text, and restore.
-foreign import javascript unsafe "window.drawHaskellText($0);"
+foreign import javascript unsafe "window.drawHaskellText($1);"
   js_fillText :: CString -> IO ()
 
 foreign import javascript unsafe "window.ctx.resetTransform();"
   js_resetTransform :: IO ()
 
-foreign import javascript unsafe "console.log('js_log=', $0);"
+foreign import javascript unsafe "console.log('js_log=', $1);"
   js_log :: Double -> IO ()
 
 foreign import javascript unsafe "return performance.now()"
